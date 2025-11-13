@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>User Dashboard</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #0a1e3d 0%, #0d2847 50%, #1a3a5c 100%);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 30px;
+      color: #333;
+    }
+    h1 {
+      color: #0a1e3d;
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+      width: 100%;
+      max-width: 500px;
+      text-align: center;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    }
+    form {
+      background: white;
+      padding: 30px;
+      width: 100%;
+      max-width: 500px;
+      border-radius: 10px;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+      margin-bottom: 20px;
+    }
+    textarea, select {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 15px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 15px;
+    }
+    button {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      background: #0a1e3d;
+      color: white;
+      border-radius: 6px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+    button:hover { background: #102f5e; }
+    #reportsContainer {
+      background: white;
+      width: 100%;
+      max-width: 500px;
+      border-radius: 10px;
+      padding: 20px;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+      margin-bottom: 20px;
+    }
+    .ticket { border-bottom: 1px solid #ddd; padding: 10px 0; }
+    .ticket:last-child { border-bottom: none; }
+    .status { font-weight: bold; color: #0a1e3d; }
+    #logout { color: #f97316; font-weight: bold; text-decoration: none; }
+    #logout:hover { text-decoration: underline; }
+    .muted { color: #666; font-size: 13px; margin-bottom: 12px; }
+  </style>
+</head>
+<body>
+  <h1>User Dashboard</h1>
+
+  <!-- Report Form -->
+  <form id="reportForm">
+    <textarea id="issue" placeholder="Describe your issue..." required></textarea>
+    <div class="muted">Priority will be assigned automatically by the system.</div>
+    <button type="submit">Submit Report</button>
+  </form>
+
+  <!-- List of User's Reports -->
+  <div id="reportsContainer">
+    <h3>Your Submitted Reports</h3>
+    <div id="userReports">Loading your reports...</div>
+  </div>
+
+  <p><a href="#" id="logout">Logout</a></p>
+
+  <script>
+    const { ipcRenderer } = require('electron');
+
+    // Safe parse of logged-in user
+    let user = null;
+    try {
+      user = JSON.parse(localStorage.getItem('user'));
+    } catch (err) {
+      user = null;
+    }
+    if (!user) { window.location.href = 'index.html'; }
+
+    const reportForm = document.getElementById('reportForm');
+    const userReports = document.getElementById('userReports');
+    const logout = document.getElementById('logout');
+
+    function determinePriority(issueText) {
+      const text = (issueText || '').toLowerCase();
+      const high = ['urgent', 'down', 'failure', "can't", 'cannot', 'not working', 'error', 'critical', 'unable', 'crash', 'data loss'];
+      const medium = ['slow', 'delay', 'intermittent', 'performance', 'lag', 'warning'];
+      if (high.some(k => text.includes(k))) return 'High';
+      if (medium.some(k => text.includes(k))) return 'Medium';
+      return 'Low';
+    }
+
+    // Submit report
+    if (reportForm) {
+      reportForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const issueText = document.getElementById('issue').value.trim();
+        if (!issueText) return alert('Please describe the issue.');
+
+        const priority = determinePriority(issueText);
+
+        const ticketData = {
+          user_id: user.id,
+          name: user.name,
+          department: user.department,
+          issue: issueText,
+          priority: priority
+        };
+
+        try {
+          const result = await ipcRenderer.invoke('create-ticket', ticketData);
+          if (result && result.success) {
+            alert('Report submitted successfully! (Priority: ' + priority + ')');
+            reportForm.reset();
+            loadUserReports();
+          } else {
+            alert('Error submitting report: ' + (result && result.message ? result.message : 'Unknown error'));
+          }
+        } catch (err) {
+          console.error('create-ticket error', err);
+          alert('Error submitting report.');
+        }
+      });
+    }
+
+    // Load user's reports
+    async function loadUserReports() {
+      try {
+        let tickets = await ipcRenderer.invoke('fetch-tickets', user.id);
+        // normalize response shapes
+        if (!Array.isArray(tickets)) {
+          if (tickets && Array.isArray(tickets.data)) tickets = tickets.data;
+          else tickets = tickets || [];
+        }
+
+        if (!tickets || tickets.length === 0) {
+          userReports.innerHTML = '<p>No reports submitted yet.</p>';
+          return;
+        }
+
+        userReports.innerHTML = tickets.map(t => `
+          <div class="ticket">
+            <p><strong>Issue:</strong> ${t.issue || ''}</p>
+            <p><strong>Priority:</strong> ${t.priority || 'N/A'}</p>
+            <p class="status"><strong>Status:</strong> ${t.status || 'Pending'}</p>
+            <p><small>${t.created_at ? new Date(t.created_at).toLocaleString() : ''}</small></p>
+          </div>
+        `).join('');
+      } catch (err) {
+        console.error('loadUserReports error', err);
+        userReports.innerHTML = '<p>Error loading reports.</p>';
+      }
+    }
+
+    // Logout
+    if (logout) {
+      logout.addEventListener('click', (e) => {
+        e.preventDefault();
+        localStorage.removeItem('user');
+        window.location.href = 'index.html';
+      });
+    }
+
+    loadUserReports();
+  </script>
+</body>
+</html>

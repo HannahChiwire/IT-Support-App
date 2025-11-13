@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Admin Dashboard</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #0a1e3d 0%, #0d2847 50%, #1a3a5c 100%);
+      min-height: 100vh;
+      color: #1f2937;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    header {
+      background: linear-gradient(135deg, #0d2847 0%, #1a3a5c 100%);
+      padding: 25px 40px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+      border-bottom: 3px solid #f97316;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    h1 {
+      color: white;
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      position: relative;
+      padding-left: 15px;
+    }
+
+    h1::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 5px;
+      height: 35px;
+      background: linear-gradient(180deg, #f97316, #ea580c);
+      border-radius: 3px;
+    }
+
+    .logout-btn {
+      background: linear-gradient(135deg, #f97316, #ea580c);
+      color: white;
+      border: none;
+      padding: 12px 28px;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 15px rgba(249, 115, 22, 0.3);
+    }
+
+    .logout-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(249, 115, 22, 0.5);
+    }
+
+    p {
+      color: rgba(255, 255, 255, 0.9);
+      font-size: 16px;
+      padding: 30px 40px 20px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    #reportTable {
+      width: calc(100% - 80px);
+      max-width: 1400px;
+      margin: 20px auto 40px;
+      background: rgba(255, 255, 255, 0.98);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+      border-collapse: collapse;
+    }
+
+    thead {
+      background: linear-gradient(135deg, #0d2847 0%, #1a3a5c 100%);
+    }
+
+    thead tr th {
+      color: white;
+      font-weight: 600;
+      text-align: left;
+      padding: 18px 22px;
+      text-transform: uppercase;
+      font-size: 13px;
+    }
+
+    tbody tr {
+      border-bottom: 1px solid #e5e7eb;
+      transition: all 0.3s ease;
+    }
+
+    tbody tr:hover {
+      background: rgba(249, 115, 22, 0.08);
+      transform: scale(1.005);
+    }
+
+    tbody tr:last-child {
+      border-bottom: none;
+    }
+
+    tbody tr td {
+      padding: 18px 22px;
+      color: #374151;
+      font-size: 14px;
+      border: none;
+    }
+
+    select.statusSelect {
+      padding: 6px 10px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+      background: white;
+    }
+
+    @media (max-width: 768px) {
+      header {
+        padding: 20px 20px;
+        flex-direction: column;
+        gap: 15px;
+      }
+
+      h1 {
+        font-size: 24px;
+        padding-left: 0;
+      }
+
+      #reportTable {
+        width: calc(100% - 40px);
+        font-size: 12px;
+      }
+
+      thead tr th,
+      tbody tr td {
+        padding: 10px 8px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Admin Dashboard</h1>
+    <button id="logoutBtn" class="logout-btn">Logout</button>
+  </header>
+
+  <p>Below is a list of all submitted reports.</p>
+
+  <table id="reportTable">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Department</th>
+        <th>Issue</th>
+        <th>Priority</th>
+        <th>Status</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody id="reportBody">
+      <!-- Reports will load dynamically -->
+    </tbody>
+  </table>
+
+  <script>
+    const { ipcRenderer } = require('electron');
+    const logoutBtn = document.getElementById('logoutBtn');
+    const reportBody = document.getElementById('reportBody');
+
+    // Safe parse of stored user
+    let user = null;
+    try {
+      user = JSON.parse(localStorage.getItem('user'));
+    } catch (err) {
+      user = null;
+    }
+
+    if (!user || user.role !== 'admin') {
+      // Not logged in as admin — redirect to login
+      window.location.href = 'index.html';
+    }
+
+    // Logout functionality (guard element)
+    if (logoutBtn) {
+      logoutBtn.addEventListener('click', () => {
+        localStorage.removeItem('user');
+        window.location.href = 'index.html';
+      });
+    }
+
+    // Load all reports
+    async function loadReports() {
+      try {
+        let reports = await ipcRenderer.invoke('fetch-tickets');
+
+        // Normalize to array if main process returned { success, data } or similar
+        if (!Array.isArray(reports)) {
+          if (reports && Array.isArray(reports.data)) reports = reports.data;
+          else reports = reports || [];
+        }
+
+        if (!reportBody) return;
+
+        if (!reports || reports.length === 0) {
+          reportBody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#777; padding:20px;">No reports available.</td></tr>`;
+          return;
+        }
+
+        reportBody.innerHTML = reports.map(r => `
+          <tr>
+            <td>${r.name || ''}</td>
+            <td>${r.department || ''}</td>
+            <td>${r.issue || ''}</td>
+            <td>${r.priority || ''}</td>
+            <td>${r.status || ''}</td>
+            <td>
+              <select class="statusSelect" data-id="${r.id}">
+                <option value="Pending" ${r.status === 'Pending' ? 'selected' : ''}>Pending</option>
+                <option value="In Progress" ${r.status === 'In Progress' ? 'selected' : ''}>In Progress</option>
+                <option value="Resolved" ${r.status === 'Resolved' ? 'selected' : ''}>Resolved</option>
+              </select>
+            </td>
+          </tr>
+        `).join('');
+
+        // Attach change listeners
+        document.querySelectorAll('.statusSelect').forEach(select => {
+          select.addEventListener('change', async (e) => {
+            const ticketId = e.target.dataset.id;
+            const newStatus = e.target.value;
+            try {
+              const result = await ipcRenderer.invoke('update-status', { id: Number(ticketId), status: newStatus });
+              if (result && result.success) {
+                alert('Status updated successfully!');
+                loadReports();
+              } else {
+                alert('Error updating status: ' + (result && result.message ? result.message : 'Unknown error'));
+              }
+            } catch (err) {
+              console.error('update-status error', err);
+              alert('Error updating status.');
+            }
+          });
+        });
+      } catch (err) {
+        console.error('loadReports error', err);
+        if (reportBody) {
+          reportBody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#777; padding:20px;">Error loading reports.</td></tr>`;
+        }
+      }
+    }
+
+    loadReports();
+  </script>
+</body>
+</html>
