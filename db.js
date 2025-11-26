@@ -71,7 +71,7 @@ async function init() {
     await run(`
       INSERT INTO users (name, email, password, department, role)
       VALUES (?, ?, ?, ?, ?)`,
-      ['Admin', 'admin@support.com', 'admin123', 'IT', 'admin']
+      ['Admin', 'ICT@sigelege.com', 'admin123', 'IT', 'admin']
     );
 
     console.log("✅ Database initialized — Admin account created (admin@support.com / admin123)");

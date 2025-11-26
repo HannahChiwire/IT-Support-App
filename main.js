@@ -1,7 +1,29 @@
 // main.js
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
-const db = require('./db'); // make sure the file name matches your actual file, e.g., database.js
+const db = require('./db');
+const nodemailer = require('nodemailer');
+
+// load .env
+require('dotenv').config();
+
+// Create a Gmail transporter
+let transporter;
+try {
+  transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: process.env.GMAIL_USER,
+      pass: process.env.GMAIL_PASS
+    }
+  });
+  console.log('Gmail transporter created successfully.');
+} catch (err) {
+  console.error('Failed to create Gmail transporter:', err);
+}
+
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'ICT@sigelege.com';
+const SEND_FROM = process.env.SEND_FROM || process.env.GMAIL_USER || 'no-reply@example.com';
 
 let mainWindow;
 
@@ -45,7 +67,41 @@ ipcMain.handle('login-user', async (event, { email, password }) => {
 // Create a new report/ticket
 ipcMain.handle('create-ticket', async (event, ticketData) => {
   try {
-    const ticketId = await db.createTicket(ticketData);
+    // db.createTicket should return { id, created_at }
+    const res = await db.createTicket(ticketData);
+    const ticketId = res && res.id ? res.id : res; // fallback if createTicket returns id directly
+    const createdAt = res && res.created_at ? res.created_at : new Date().toISOString();
+
+    // send email in background (non-blocking)
+    (async () => {
+      try {
+        if (!transporter) {
+          console.warn('Gmail transporter not configured — skipping email.');
+          return;
+        }
+
+        const mailOptions = {
+          to: ADMIN_EMAIL,
+          from: SEND_FROM,
+          subject: `New Support Ticket #${ticketId} — ${ticketData.priority || 'N/A'}`,
+          html: `
+            <p>A new support request has been logged and requires your attention.</p>
+            <ul>
+              <li><strong>Reporter:</strong> ${ticketData.name || 'Unknown'}</li>
+              <li><strong>Department:</strong> ${ticketData.department || 'N/A'}</li>
+              <li><strong>Priority:</strong> ${ticketData.priority || 'N/A'}</li>
+              <li><strong>Issue:</strong> ${ticketData.issue || ''}</li>
+            </ul>
+          `
+        };
+
+        const info = await transporter.sendMail(mailOptions);
+        console.log('Gmail: notification sent for ticket', ticketId, 'response:', info && info.response);
+      } catch (emailErr) {
+        console.error('Gmail send error:', emailErr);
+      }
+    })();
+
     return { success: true, id: ticketId };
   } catch (err) {
     return { success: false, message: err.message };

@@ -1,20 +1,53 @@
 {
   "name": "it-support-app",
   "version": "1.0.0",
-  "description": "",
+  "description": "IT Support Ticket Management System",
   "main": "main.js",
   "scripts": {
-   "start": "electron ."
-   
+    "start": "electron .",
+    "build": "electron-builder",
+    "build:win": "electron-builder --win --publish never",
+    "build:publish": "electron-builder --win --publish always"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
+  "build": {
+    "appId": "com.sigelege.itsupport",
+    "productName": "IT Support App",
+    "directories": {
+      "buildResources": "assets"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "db.js",
+      ".env",
+      "renderer/**/*",
+      "node_modules/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "certificateFile": null,
+      "certificatePassword": null
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  },
   "dependencies": {
-    "electron": "^39.1.2",
-    "electron-reload": "^2.0.0-alpha.1",
-    "nodemailer": "^7.0.10",
-    "sqlite3": "^5.1.7"
+    "@sendgrid/mail": "^7.x.x",
+    "dotenv": "^16.x.x",
+    "electron-squirrel-startup": "^1.1.0",
+    "nodemailer": "^6.x.x",
+    "sqlite3": "^5.x.x"
+  },
+  "devDependencies": {
+    "electron": "latest",
+    "electron-builder": "latest"
   }
 }
