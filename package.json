@@ -1,6 +1,7 @@
 {
   "name": "it-support-app",
   "version": "1.0.0",
+  "author": "Hannah <hannah@sigelege.com>",
   "description": "IT Support Ticket Management System",
   "main": "main.js",
   "scripts": {
@@ -19,7 +20,6 @@
       "main.js",
       "preload.js",
       "db.js",
-      ".env",
       "renderer/**/*",
       "node_modules/**/*",
       "package.json"
@@ -28,21 +28,27 @@
       "target": [
         "nsis",
         "portable"
-      ],
-      "certificateFile": null,
-      "certificatePassword": null
+      ]
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true
-    }
+    },
+    "icon": "assets/icon.ico",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "HannahChiwire",
+        "repo": "IT-Support-App"
+      }
+    ]
   },
   "dependencies": {
     "@sendgrid/mail": "^7.x.x",
     "dotenv": "^16.x.x",
-    "electron-squirrel-startup": "^1.0.0",
+    "electron-updater": "^6.6.2",
     "nodemailer": "^6.x.x",
     "sqlite3": "^5.x.x"
   },

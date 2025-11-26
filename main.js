@@ -3,6 +3,7 @@ const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const db = require('./db');
 const nodemailer = require('nodemailer');
+const { autoUpdater } = require('electron-updater');
 
 // load .env
 require('dotenv').config();
@@ -28,10 +29,11 @@ const SEND_FROM = process.env.SEND_FROM || process.env.GMAIL_USER || 'no-reply@e
 let mainWindow;
 
 app.whenReady().then(async () => {
-  // Initialize the database
-  await db.init();
+  // use a writable location for the DB
+  const userDataPath = app.getPath('userData'); // e.g. C:\Users\<user>\AppData\Roaming\<appId>
+  await db.init(userDataPath);
 
-  // Create the main application window
+  // create window after DB initialized
   mainWindow = new BrowserWindow({
     width: 900,
     height: 700,
@@ -42,8 +44,15 @@ app.whenReady().then(async () => {
     },
   });
 
-  // Load the login page from renderer folder
   mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
+
+  // auto-update: check once on startup
+  try {
+    autoUpdater.autoDownload = true; // auto-download when update found
+    autoUpdater.checkForUpdatesAndNotify(); // shows notifications for update events
+  } catch (e) {
+    console.warn('Auto-updater init failed:', e);
+  }
 });
 
 // ---------- IPC HANDLERS ----------
