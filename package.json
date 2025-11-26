@@ -42,12 +42,12 @@
   "dependencies": {
     "@sendgrid/mail": "^7.x.x",
     "dotenv": "^16.x.x",
-    "electron-squirrel-startup": "^1.1.0",
+    "electron-squirrel-startup": "^1.0.0",
     "nodemailer": "^6.x.x",
     "sqlite3": "^5.x.x"
   },
   "devDependencies": {
     "electron": "latest",
-    "electron-builder": "latest"
+    "electron-builder": "^26.0.12"
   }
 }
