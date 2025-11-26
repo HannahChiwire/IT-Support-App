@@ -1,6 +1,6 @@
 {
   "name": "it-support-app",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "author": "Hannah <hannah@sigelege.com>",
   "description": "IT Support Ticket Management System",
   "main": "main.js",
